@@ -18,3 +18,8 @@ case ":$PATH:" in
   *) echo "Note: $PREFIX is not on your PATH. Add this to ~/.zshrc:"
      echo "  export PATH=\"$PREFIX:\$PATH\"" ;;
 esac
+
+# The release installer (install.sh) wires the zsh integration into ~/.zshrc for
+# you. From a source build, enable it yourself by adding this to ~/.zshrc:
+echo 'For the "put the command on my prompt" behaviour, add to ~/.zshrc:'
+echo '  eval "$(maic --init zsh)"'

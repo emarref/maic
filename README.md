@@ -16,11 +16,19 @@ ls -laS
 
 $ maic show my primary local IP address
 ipconfig getifaddr en0
-
-$ maic -r flush the DNS cache
-sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
-Run this? [Y/n/e to edit]
 ```
+
+With the zsh integration enabled, the suggested command is placed **on your prompt**
+instead of just printed — ready to run, edit, or discard, exactly as if you'd typed it:
+
+```
+$ maic flush the DNS cache
+# …a beat while the on-device model thinks…
+$ sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder█   ← now on your prompt
+```
+
+Press **Enter** to run it (it lands in your shell history like any command you typed),
+edit it first, or **Ctrl-C** to discard. Nothing runs on its own.
 
 Because it's told to assume the BSD userland that ships with macOS, it prefers
 `stat -f`, `sed -i ''`, `pbcopy`, `mdfind`, `networksetup`, etc. — not GNU/Linux flags.
@@ -35,7 +43,8 @@ Because it's told to assume the BSD userland that ships with macOS, it prefers
 
 ## Install
 
-One line — downloads the latest release, verifies its checksum, and installs to `~/.local/bin`:
+One line — downloads the latest release, verifies its checksum, installs to `~/.local/bin`,
+and enables the [zsh integration](#shell-integration-zsh) (set `MAIC_NO_SHELL_INIT=1` to skip that):
 
 ```
 curl -fsSL https://raw.githubusercontent.com/emarref/maic/main/install.sh | bash
@@ -90,11 +99,31 @@ swift build -c release
 ## Usage
 
 ```
-maic <what you want to do>          print the command
-maic -r <what you want to do>       print it, then confirm before running
+maic <what you want to do>          suggest the command
+maic --init zsh                     print the zsh integration (for ~/.zshrc)
 maic -h                             help
 ```
 
-The `-r`/`--run` flow always confirms first: press Enter (or `y`) to run, `e` to
-edit the command before running, or `n` to abort. The model can be wrong or suggest
-something destructive, so it never runs without a confirmation step.
+## Shell integration (zsh)
+
+maic never runs anything on its own. Instead it hands you the command to run,
+edit, or throw away. The `install.sh` one-liner wires this into your `~/.zshrc`
+automatically; from a source build, add it yourself:
+
+```
+eval "$(maic --init zsh)"
+```
+
+Then `maic <task>` places the suggested command on your next prompt, editable and
+cursor-ready. Press Enter to run it (it enters your shell history normally), tweak
+it first, or Ctrl-C to discard.
+
+Why a shell function rather than doing it all in the binary? A child process can't
+type into its parent shell's line editor — so the command is handed back to zsh
+(via `print -z`), which is also what makes it land in your history and lets `cd`
+or `export` actually stick.
+
+Skip the automatic setup with `MAIC_NO_SHELL_INIT=1` when installing. To remove
+the integration later, delete the block between the `# >>> maic shell integration >>>`
+and `# <<< maic shell integration <<<` markers in your `~/.zshrc`. Without the integration (or in a pipe, `$(…)`, or a
+non-interactive shell) `maic` simply prints the command, so `x=$(maic …)` still works.
