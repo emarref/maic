@@ -28,6 +28,12 @@ esac
 arch="$(uname -m)"
 [ "$arch" = "arm64" ] || err "maic ships arm64-only (Apple silicon); detected '$arch'."
 
+# maic needs FoundationModels, which only exists on macOS 26+. Without this the
+# install succeeds but the binary can't launch (a cryptic dyld version error) —
+# so fail here with a clear message instead.
+os_ver="$(sw_vers -productVersion)"
+[ "${os_ver%%.*}" -ge 26 ] 2>/dev/null || err "maic requires macOS 26 or later (detected $os_ver)."
+
 for tool in curl tar shasum; do
   command -v "$tool" >/dev/null 2>&1 || err "required tool not found: $tool"
 done

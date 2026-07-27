@@ -6,6 +6,11 @@ cd "$(dirname "$0")"
 
 PREFIX="${PREFIX:-$HOME/.local/bin}"
 
+# maic needs FoundationModels, which only exists on macOS 26+. Fail early with a
+# clear message rather than letting `swift build` emit an opaque SDK error.
+os_ver="$(sw_vers -productVersion)"
+[ "${os_ver%%.*}" -ge 26 ] 2>/dev/null || { echo "build: maic requires macOS 26 or later (detected $os_ver)." >&2; exit 1; }
+
 echo "Building (release)…"
 swift build -c release
 
