@@ -33,7 +33,22 @@ Because it's told to assume the BSD userland that ships with macOS, it prefers
   until it's ready `maic` will tell you so.
 - Xcode Command Line Tools (`xcode-select --install`) — full Xcode is not required.
 
-## Download a release
+## Install
+
+One line — downloads the latest release, verifies its checksum, and installs to `~/.local/bin`:
+
+```
+curl -fsSL https://raw.githubusercontent.com/emarref/maic/main/install.sh | bash
+```
+
+Pin a specific version, or install somewhere else:
+
+```
+curl -fsSL https://raw.githubusercontent.com/emarref/maic/main/install.sh | bash -s -- v0.1.0-beta.1
+curl -fsSL https://raw.githubusercontent.com/emarref/maic/main/install.sh | PREFIX=/usr/local/bin bash
+```
+
+## Download a release manually
 
 Prebuilt arm64 binaries are attached to each [GitHub Release](https://github.com/emarref/maic/releases).
 Download `maic-<version>-macos-arm64.tar.gz`, then:
@@ -55,12 +70,14 @@ Verify the download against the published `.sha256` if you like:
 shasum -a 256 -c maic-<version>-macos-arm64.tar.gz.sha256
 ```
 
-## Build & install
+## Build from source
+
+For hacking on maic, or if you'd rather build locally than download a release:
 
 ```
-./install.sh              # builds release, installs to ~/.local/bin/maic
+./build.sh                # builds release, installs to ~/.local/bin/maic
 # or choose a location:
-PREFIX=/usr/local/bin ./install.sh
+PREFIX=/usr/local/bin ./build.sh
 ```
 
 Or just build in place:
