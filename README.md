@@ -19,7 +19,7 @@ ipconfig getifaddr en0
 
 $ maic -r flush the DNS cache
 sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
-Run this? [y/N/e to edit]
+Run this? [Y/n/e to edit]
 ```
 
 Because it's told to assume the BSD userland that ships with macOS, it prefers
@@ -95,6 +95,6 @@ maic -r <what you want to do>       print it, then confirm before running
 maic -h                             help
 ```
 
-The `-r`/`--run` flow always confirms first (`y` to run, `e` to edit, anything else
-to abort) — the model can be wrong or suggest something destructive, so nothing runs
-without your say-so.
+The `-r`/`--run` flow always confirms first: press Enter (or `y`) to run, `e` to
+edit the command before running, or `n` to abort. The model can be wrong or suggest
+something destructive, so it never runs without a confirmation step.

@@ -1,5 +1,6 @@
 import Foundation
 import FoundationModels
+import MaicCore
 
 // `maic` — a tiny local interface to the on-device model shipped with macOS.
 // Describe a task in plain English; get back a single macOS-specific shell command.
@@ -89,20 +90,21 @@ struct Maic {
 
         guard runAfter else { return }
 
-        // A model can be wrong or dangerous — always confirm before executing.
-        FileHandle.standardError.write(Data("Run this? [y/N/e to edit] ".utf8))
-        let answer = readLine(strippingNewline: true)?.lowercased() ?? ""
+        // A model can be wrong or dangerous, so we still confirm — but the
+        // common case is "yes, run it", so Enter defaults to running.
+        FileHandle.standardError.write(Data("Run this? [Y/n/e to edit] ".utf8))
+        let answer = readLine(strippingNewline: true) ?? ""
 
         var toRun = command
-        switch answer {
-        case "y", "yes":
+        switch runConfirmation(for: answer) {
+        case .run:
             break
-        case "e", "edit":
+        case .edit:
             FileHandle.standardError.write(Data("Edit command: ".utf8))
             let edited = readLine(strippingNewline: true)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !edited.isEmpty else { exit(0) }
             toRun = edited
-        default:
+        case .abort:
             exit(0)
         }
 
@@ -172,7 +174,8 @@ struct Maic {
           maic -r <what you want to do>     confirm, then run the command
 
         OPTIONS:
-          -r, --run     after printing the command, ask before executing it
+          -r, --run     after printing the command, confirm then run it
+                        (prompt is [Y/n/e to edit]; Enter or y runs, n aborts, e edits first)
           -v, --version print the version and exit
           -h, --help    show this help
 
