@@ -1,0 +1,30 @@
+name: CI
+
+# Compile check on every push to main and on pull requests, so breakage is
+# caught before you cut a release tag. Same runner as the release workflow.
+# Like release.yml, this can't smoke-test the binary (no Apple Intelligence on
+# CI) — a green check means it compiled, not that the model responded.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# Cancel an in-progress run when new commits land on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: swift --version
+
+      - name: Build (release)
+        run: swift build -c release
