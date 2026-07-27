@@ -86,7 +86,23 @@ case ":$PATH:" in
   *) path_line="export PATH=\"$PREFIX:\$PATH\"" ;;
 esac
 
-if [ -n "${MAIC_NO_SHELL_INIT:-}" ]; then
+# Only wire in the `eval` if THIS binary actually understands `--init zsh`.
+# A binary that predates the integration treats `--init zsh` as a plain-English
+# task and asks the model, which happily returns something like `zsh -i` — and
+# `eval "$(...)"` would then launch a nested interactive shell that hangs every
+# new shell forever. Probing for the integration's sentinel line makes a
+# version mismatch impossible to poison ~/.zshrc with.
+init_sentinel="# maic shell integration (zsh)"
+supports_init=""
+if "$PREFIX/maic" --init zsh 2>/dev/null | grep -qF "$init_sentinel"; then
+  supports_init=1
+fi
+
+if [ -z "$supports_init" ]; then
+  echo "This maic ($tag) predates the zsh integration; not touching $rc." >&2
+  echo "Upgrade to a release that supports 'maic --init zsh' to enable it." >&2
+  [ -n "$path_line" ] && echo "Make sure this is on your PATH: $path_line" >&2
+elif [ -n "${MAIC_NO_SHELL_INIT:-}" ]; then
   echo "Skipping shell integration (MAIC_NO_SHELL_INIT set). To enable it, add to $rc:" >&2
   [ -n "$path_line" ] && echo "  $path_line" >&2
   echo '  eval "$(maic --init zsh)"' >&2
