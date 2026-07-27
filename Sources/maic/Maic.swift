@@ -6,7 +6,10 @@ import MaicCore
 // Describe a task in plain English; get back a single macOS-specific shell command.
 //
 //   maic list files in this dir sorted by size, largest first
-//   maic -r flush the dns cache          # -r prompts before running the command
+//
+// With the zsh integration enabled (`eval "$(maic --init zsh)"`), the command is
+// placed on your prompt — editable, cursor-ready — instead of just printed, so you
+// can run it (Enter), tweak it, or discard it (Ctrl-C). Nothing runs on its own.
 //
 // Nothing leaves the machine: this uses Apple's on-device FoundationModels.
 
@@ -33,7 +36,13 @@ struct Maic {
     static func main() async {
         var args = Array(CommandLine.arguments.dropFirst())
 
-        var runAfter = false
+        // `maic --init <shell>` prints the shell integration and exits. Handled
+        // before anything else so it never reaches the model. A leading `--init`
+        // is unambiguous — a plain-English task never starts with a `--` flag.
+        if args.first == "--init" {
+            printShellInit(for: args.count > 1 ? args[1] : "zsh")
+        }
+
         var remaining: [String] = []
         for arg in args {
             switch arg {
@@ -44,7 +53,13 @@ struct Maic {
                 print("maic \(maicVersion)")
                 exit(0)
             case "-r", "--run":
-                runAfter = true
+                // Deprecated no-op. maic no longer runs commands itself — the zsh
+                // integration puts the command on your prompt to run or edit. The
+                // flag is still swallowed so old muscle memory doesn't leak `-r`
+                // into the task text, but we say so rather than change behaviour
+                // silently.
+                FileHandle.standardError.write(Data(
+                    "maic: -r/--run is deprecated and no longer runs the command; enable the zsh integration to run it from your prompt (see --help)\n".utf8))
             default:
                 remaining.append(arg)
             }
@@ -75,7 +90,7 @@ struct Maic {
         let command: String
         do {
             let response = try await session.respond(to: query, options: options)
-            command = clean(response.content)
+            command = cleanCommand(response.content)
         } catch {
             FileHandle.standardError.write(Data("maic: generation failed — \(error.localizedDescription)\n".utf8))
             exit(70) // EX_SOFTWARE
@@ -86,69 +101,21 @@ struct Maic {
             exit(70)
         }
 
+        // Print the command. When invoked through the zsh function the command is
+        // captured and placed on the prompt; run bare, it's just printed.
         print(command)
+    }
 
-        guard runAfter else { return }
-
-        // A model can be wrong or dangerous, so we still confirm — but the
-        // common case is "yes, run it", so Enter defaults to running.
-        FileHandle.standardError.write(Data("Run this? [Y/n/e to edit] ".utf8))
-        let answer = readLine(strippingNewline: true) ?? ""
-
-        var toRun = command
-        switch runConfirmation(for: answer) {
-        case .run:
-            break
-        case .edit:
-            FileHandle.standardError.write(Data("Edit command: ".utf8))
-            let edited = readLine(strippingNewline: true)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard !edited.isEmpty else { exit(0) }
-            toRun = edited
-        case .abort:
+    /// Emit shell integration for the named shell, then exit. Only zsh is supported.
+    static func printShellInit(for shell: String) -> Never {
+        switch shell {
+        case "zsh":
+            print(zshShellInit)
             exit(0)
+        default:
+            FileHandle.standardError.write(Data("maic: --init supports only 'zsh' (got '\(shell)')\n".utf8))
+            exit(64) // EX_USAGE
         }
-
-        exit(run(toRun))
-    }
-
-    /// Strip anything the model may have wrapped the command in despite instructions.
-    static func clean(_ raw: String) -> String {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Remove a fenced code block if present.
-        if text.hasPrefix("```") {
-            var lines = text.components(separatedBy: "\n")
-            lines.removeFirst() // opening fence (possibly with a language tag)
-            if let last = lines.last, last.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
-                lines.removeLast()
-            }
-            text = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        // Strip a stray single-backtick wrap or leading shell prompt.
-        if text.hasPrefix("`") && text.hasSuffix("`") && text.count > 1 {
-            text = String(text.dropFirst().dropLast())
-        }
-        for prefix in ["$ ", "% "] where text.hasPrefix(prefix) {
-            text = String(text.dropFirst(prefix.count))
-        }
-
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    static func run(_ command: String) -> Int32 {
-        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: shell)
-        process.arguments = ["-c", command]
-        do {
-            try process.run()
-        } catch {
-            FileHandle.standardError.write(Data("maic: failed to launch shell — \(error.localizedDescription)\n".utf8))
-            return 126
-        }
-        process.waitUntilExit()
-        return process.terminationStatus
     }
 
     static func describe(_ reason: SystemLanguageModel.Availability.UnavailableReason) -> String {
@@ -171,18 +138,22 @@ struct Maic {
 
         USAGE:
           maic <what you want to do>
-          maic -r <what you want to do>     confirm, then run the command
+
+        With the zsh integration enabled, the suggested command is placed on your
+        prompt — press Enter to run it, edit it first, or Ctrl-C to discard.
+        Enable it once by adding this to your ~/.zshrc:
+
+          eval "$(maic --init zsh)"
 
         OPTIONS:
-          -r, --run     after printing the command, confirm then run it
-                        (prompt is [Y/n/e to edit]; Enter or y runs, n aborts, e edits first)
+          --init zsh    print the zsh shell integration (for eval in ~/.zshrc)
           -v, --version print the version and exit
           -h, --help    show this help
 
         EXAMPLES:
           maic list files sorted by size, largest first
           maic show my local IP address
-          maic -r flush the DNS cache
+          maic flush the DNS cache
         """
         print(usage)
     }

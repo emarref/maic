@@ -70,8 +70,50 @@ install -m 0755 "$binsrc" "$PREFIX/maic"
 ver="$("$PREFIX/maic" --version 2>/dev/null || true)"
 echo "Installed: $PREFIX/maic${ver:+ ($ver)}" >&2
 
+# --- shell integration -----------------------------------------------------
+# maic places the suggested command on your zsh prompt (editable; nothing runs
+# until you press Enter) via a small function. Wire it into ~/.zshrc, idempotently.
+# Set MAIC_NO_SHELL_INIT=1 to skip this and get the manual instructions instead.
+rc="${ZDOTDIR:-$HOME}/.zshrc"
+begin="# >>> maic shell integration >>>"
+end="# <<< maic shell integration <<<"
+
+# The managed block prepends PREFIX to PATH only when it isn't already there,
+# so the `eval` line can find `maic` at shell startup.
+path_line=""
 case ":$PATH:" in
   *":$PREFIX:"*) ;;
-  *) echo "Note: $PREFIX is not on your PATH. Add this to ~/.zshrc:" >&2
-     echo "  export PATH=\"$PREFIX:\$PATH\"" >&2 ;;
+  *) path_line="export PATH=\"$PREFIX:\$PATH\"" ;;
 esac
+
+if [ -n "${MAIC_NO_SHELL_INIT:-}" ]; then
+  echo "Skipping shell integration (MAIC_NO_SHELL_INIT set). To enable it, add to $rc:" >&2
+  [ -n "$path_line" ] && echo "  $path_line" >&2
+  echo '  eval "$(maic --init zsh)"' >&2
+else
+  block="$begin"
+  [ -n "$path_line" ] && block="$block
+$path_line"
+  block="$block
+eval \"\$(maic --init zsh)\"
+$end"
+
+  touch "$rc"
+  if grep -qF "$begin" "$rc"; then
+    # Drop any existing managed block first, so re-running stays idempotent.
+    awk -v b="$begin" -v e="$end" '
+      $0==b {skip=1}
+      skip  {if ($0==e) skip=0; next}
+      {print}
+    ' "$rc" > "$rc.maic.tmp" && mv "$rc.maic.tmp" "$rc"
+  fi
+  # Ensure a separating newline so the marker never fuses onto the user's last
+  # line (a ~/.zshrc isn't guaranteed to end in a newline).
+  if [ -s "$rc" ] && [ -n "$(tail -c1 "$rc")" ]; then
+    printf '\n' >> "$rc"
+  fi
+  printf '%s\n' "$block" >> "$rc"
+  echo "Enabled maic zsh integration in $rc." >&2
+  echo "Start a new shell (or run: source $rc) to use it." >&2
+  echo "To remove it, delete the block between the '$begin' / '$end' markers." >&2
+fi
