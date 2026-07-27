@@ -1,0 +1,9 @@
+# Keep GitHub Actions current: Dependabot opens a PR when a newer version of
+# any action used in .github/workflows/ is available. CI runs on those PRs, so
+# a bump only merges once it's proven green.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
