@@ -2,6 +2,8 @@
 
 *Puts the AI in mac.*
 
+[![CI](https://github.com/emarref/maic/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/emarref/maic/actions/workflows/ci.yml)
+
 A tiny local CLI that turns a plain-English description into the right **macOS-specific**
 shell command, using the on-device model shipped with macOS (Apple's
 [FoundationModels](https://developer.apple.com/documentation/foundationmodels) framework).
